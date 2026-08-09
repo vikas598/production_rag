@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 from langchain_community.embeddings import JinaEmbeddings
 
 load_dotenv()
-
 embeddings = JinaEmbeddings(model_name="jina-embeddings-v2-base-en")
+
 # embeddings = HuggingFaceBgeEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # # single text
