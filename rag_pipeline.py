@@ -258,9 +258,86 @@ Provide a structured response."""
     print(f"Follow-up: {result.follow_up}")
 
 
+def exercise_document_qa():
+    """
+    EXERCISE: Build a complete document Q&A system that:
+    1. Takes a text document as input
+    2. Splits and embeds it
+    3. Allows multiple questions
+    4. Returns answers with confidence scores
+    """
+
+    class DocumentQA:
+        def __init__(self, document: str, source_name: str = "document"):
+            # Split document
+            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=150)
+            doc = Document(page_content=document, metadata={"source": source_name})
+            chunks = splitter.split_documents([doc])
+
+            # Create vector store
+            vector_store = Chroma.from_documents(
+                documents=chunks,
+                embedding=JinaEmbeddings(model="jina-embeddings-v2-base-en"),
+            )
+            self.retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+
+            # create chain
+            self.llm = init_chat_model(
+                model="llama-3.3-70b-versatile", model_provider="groq"
+            )
+
+            self.prompt = ChatPromptTemplate.from_template(
+                """
+Answer based on the context. Rate your confidence (high/medium/low).
+
+Context: {context}
+Question: {question}
+
+Format: [Confidence: X] Answer"""
+            )
+
+            def format_docs(docs):
+                return "\n".join(d.page_content for d in docs)
+
+            self.chain = (
+                {
+                    "context": self.retriever | format_docs,
+                    "question": RunnablePassthrough(),
+                }
+                | self.prompt
+                | self.llm
+                | StrOutputParser()
+            )
+
+        def ask(self, question: str) -> str:
+            return self.chain.invoke(question)
+
+        # Test
+
+    test_doc = """
+    The Python programming language was created by Guido van Rossum.
+    First released in 1991, Python emphasizes code readability.
+    Python 3.12 was released in October 2023 with improved error messages.
+    The language is named after Monty Python, not the snake.
+    """
+
+    qa = DocumentQA(test_doc, "python_facts")
+    print("Document Q&A System:\n")
+    questions = [
+        "Who created Python?",
+        "When was Python 3.12 released?",
+        "Why is Python named Python?",
+    ]
+
+    for q in questions:
+        answer = qa.ask(q)
+        print(f"Q: {q}")
+        print(f"A: {answer}\n")
+
+
 if __name__ == "__main__":
     # demo_basic_rag()
     # demo_rag_with_sources()
     # demo_rag_with_fallback()
-    demo_structured_rag()
-    # exercise_document_qa()
+    # demo_structured_rag()
+    exercise_document_qa()
